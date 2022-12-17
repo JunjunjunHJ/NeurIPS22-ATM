@@ -1,0 +1,2 @@
+export CUDA_VISIBLE_DEVICES=3
+python train_multi_sacd.py --task simple_spread_in --num-good-agents 5 --obs-radius 0.5 --intr-rew elign_team --epoch 5 --save-models --benchmark  --logdir log/simple_spread --wandb-enabled --random_seed --layer-num 128

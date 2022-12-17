@@ -10,23 +10,23 @@ from tianshou.trainer import test_episode, gather_info
 
 
 def offpolicy_trainer(
-        policy: BasePolicy,
-        train_collector: Collector,
-        test_collector: Collector,
+        policy: BasePolicy,   # 不知道这个所谓的policy,引用的basepolicy类型的policy具体怎么设置的
+        train_collector: Collector, # 训练时候用的collector, 我个人理解是policy
+        test_collector: Collector,  # 测试阶段, 同上
         max_epoch: int,
         step_per_epoch: int,
-        collect_per_step: int,
+        collect_per_step: int, # 输入状态是图片, 用多少张(frame)图片的数据来更新一次policy
         episode_per_test: Union[int, List[int]],
-        batch_size: int,
-        train_fn: Optional[Callable[[int], None]] = None,
+        batch_size: int, # train
+        train_fn: Optional[Callable[[int], None]] = None, # 每个epoch更新前的预处理? 输入的是一个函数的名字
         test_fn: Optional[Callable[[int], None]] = None,
-        stop_fn: Optional[Callable[[float], bool]] = None,
-        save_fn: Optional[Callable[[BasePolicy], None]] = None,
+        stop_fn: Optional[Callable[[float], bool]] = None, # 决定在每个epoch中停止游戏
+        save_fn: Optional[Callable[[BasePolicy], None]] = None, # 如果test效果好m, 就保存此刻的policy
         save_per_epoch: Optional[int] = None,
         log_fn: Optional[Callable[[dict], None]] = None,
         writer: Optional[SummaryWriter] = None,
         log_interval: int = 1,
-        verbose: bool = True,
+        verbose: bool = True,  # 是否把信息打印出来
         **kwargs
 ) -> Dict[str, Union[float, str]]:
     """A wrapper for off-policy trainer procedure.
@@ -70,7 +70,7 @@ def offpolicy_trainer(
     best_epoch, best_reward = -1, -1
     stat = {}
     start_time = time.time()
-    test_in_train = train_collector.policy == policy
+    test_in_train = train_collector.policy == policy # bool
     for epoch in range(1, 1 + max_epoch):
         # train
         policy.train()

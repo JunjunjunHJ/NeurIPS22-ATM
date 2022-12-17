@@ -197,7 +197,7 @@ def evaluate_multi_sacd(args=get_args()):
                           benchmark_logger=benchmark_logger)
     result = collector.collect(n_episode=args.num_episodes)
     collector.close()
-    # wandb.log(result)
+    wandb.log(result)
     log_path = args.logdir
     start = log_path.rfind('/') + 1
     end = log_path.find('intr') - 1 if log_path.find('intr') != - \

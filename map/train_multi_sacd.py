@@ -9,7 +9,7 @@ import argparse
 import wandb
 import numpy as np
 
-from models.world_model import WorldModel
+from models.world_model import WorldModel, WorldModel2
 from models.sac_nets import Actor, Critic, CentralizedCritic
 from tianshou.data import Collector, ReplayBuffer
 from tianshou.env.multiagent.multi_discrete import MultiDiscrete
@@ -41,10 +41,12 @@ def get_args():
     parser.add_argument('--benchmark', action='store_true', default=False)
     parser.add_argument('--video-file', type=str, default='videos/simple.mp4')
     parser.add_argument('--seed', type=int, default=0)
+    # zjk add random seed
+    parser.add_argument('--random_seed', action='store_true', default=False)
     parser.add_argument('--logdir', type=str, default='log')
     parser.add_argument('--checkpoint', type=str, default=None)
     parser.add_argument('--render', type=float, default=0.)
-    parser.add_argument(
+    parser.add_argument(  # cuda
         '--device', type=str,
         default='cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -96,11 +98,25 @@ def get_args():
 
 
 def train_multi_sacd(args=get_args()):
+    # seed
+    if args.random_seed: # zjk add random seed
+        import random
+        args.seed = random.randint(0,50)
+    
+    # wandb
     wandb_dir = '/scr/zixianma/multiagent/' if torch.cuda.is_available() else 'log/'
     if args.wandb_enabled:
-        wandb.init(dir=wandb_dir, sync_tensorboard=True)
+        wandb.init(
+            project="ALIGN",
+            entity="junjunjun",
+            # dir=wandb_dir, 
+            name=str(args.task) + "_sacd_" + str(args.seed),
+            # group="align_team", 
+            group=str(args.intr_rew)+"2", 
+            job_type = str(args.task) + "_" + str(args.num_good_agents) + "agents",
+            sync_tensorboard=True)
         run_name = args.logdir[args.logdir.rfind('/') + 1:]
-        wandb.run.name = run_name
+        # wandb.run.name = run_name
         wandb.config.update(args)
     torch.set_num_threads(4)  # 1 for poor CPU
     task_params = {'num_good_agents': args.num_good_agents,
@@ -108,7 +124,7 @@ def train_multi_sacd(args=get_args()):
                    'obs_radius': args.obs_radius,
                    'amb_init': args.amb_init,
                    'rew_shape': args.rew_shape}
-    env = make_multiagent_env(
+    env = make_multiagent_env( # set env 
         args.task, benchmark=args.benchmark, optional=task_params)
     num_agents = len(env.world.agents)
     args.state_shape = (env.observation_space[0].shape or
@@ -133,7 +149,13 @@ def train_multi_sacd(args=get_args()):
         [lambda: make_multiagent_env(args.task, benchmark=args.benchmark, optional=task_params)
             for _ in range(args.test_num)])
 
-    # seed
+    # np.random.seed(1)
+    # torch.manual_seed(2)
+    # train_envs.seed(3)
+    # test_envs.seed(4)
+    
+    print("final seed")
+    print(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     train_envs.seed(args.seed)
@@ -161,8 +183,11 @@ def train_multi_sacd(args=get_args()):
                       for critic2 in critic2s]
 
     # World Model
-    world_models = [WorldModel(num_agents, args.layer_num, args.state_shape, action_space_n[i], device=args.device, wm_noise_level=args.wm_noise_level).to(args.device)
+    # world_models = [WorldModel(num_agents, args.layer_num, args.state_shape, action_space_n[i], device=args.device, wm_noise_level=args.wm_noise_level).to(args.device)
+    #                 for i in range(num_agents)]
+    world_models = [WorldModel2(num_agents, args.layer_num, args.state_shape, device=args.device, wm_noise_level=args.wm_noise_level).to(args.device)
                     for i in range(num_agents)]
+    
     wm_optims = [Adam(world_model.parameters(), lr=args.actor_lr)
                  for world_model in world_models]
 
@@ -294,7 +319,7 @@ def train_multi_sacd(args=get_args()):
 
     def save_fn(): return policy.save(args.logdir) if args.save_models else None
     # trainer
-    result = offpolicy_trainer(
+    result = offpolicy_trainer(  # 上面是初始化对象，这里是跑代码
         policy, train_collector, test_collector, args.epoch,
         args.step_per_epoch, args.collect_per_step, args.test_num,
         args.batch_size, save_fn=save_fn, writer=writer)

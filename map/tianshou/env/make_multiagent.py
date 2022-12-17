@@ -61,5 +61,13 @@ def make_multiagent_env(scenario_name, optional=None, benchmark=False, discrete_
 
 
 if __name__ == '__main__':
+    import sys
+    import os
+    sys.path.insert(0, os.getcwd())
+    sys.path.insert(0, "/home/zhangjunkai/git_zjk/alignment/map/tianshou")
+    sys.path.insert(0, "/home/zhangjunkai/git_zjk/alignment/map")
+    # print(sys.path)
+    
+    # import tianshou
     env = make_multiagent_env('simple_speaker_listener')
     print(env)

@@ -101,7 +101,7 @@ class SACDMultiWMPolicy(BasePolicy):
         self.intr_rew_options = intr_rew_options
         self.num_adv = num_adv
         self.total_num_agt = len(actors)
-        self.total_num_lm = num_landmark
+        self.total_num_lm = num_landmark # landmark number
         self.obs_radii = obs_radii 
         self.partial_obs = max(self.obs_radii) < float('inf')
         self.grads_logging = grads_logging
@@ -186,16 +186,16 @@ class SACDMultiWMPolicy(BasePolicy):
             logits=logits, act=acts, state=h, dist=logits, log_prob=log_probs)
 
     def imagine_agent_j_obs(self, obs_i, i, j_list):
-        num_agts, num_lms = self.total_num_agt, self.total_num_lm
-        batch_size = obs_i.shape[0]
+        num_agts, num_lms = self.total_num_agt, self.total_num_lm # 5, 5
+        batch_size = obs_i.shape[0] # obs_i.shape:(1024, 40)
 
         # observation has to have [agent_vis_mask] + [lm_vis_mask] + agent_pos + agent_vel + entity_pos as the initial elements
-        agt_mask = obs_i[:, :num_agts] # agents visible to i, (bs,n_agts)
-        lm_mask = obs_i[:, num_agts:num_agts+num_lms] # landmarks visible to i, (bs,n_lms)
+        agt_mask = obs_i[:, :num_agts] # agents visible to i, (bs,n_agts) (1024, 5)
+        lm_mask = obs_i[:, num_agts:num_agts+num_lms] # landmarks visible to i, (bs,n_lms) (1024, 5)
 
-        agt_pos = np.reshape(obs_i[:, num_agts+num_lms:3*num_agts+num_lms], (batch_size, num_agts, 2)) # visible agent pos,(bs,n_agts,2)
-        agt_vel =  np.reshape(obs_i[:, 3*num_agts+num_lms:5*num_agts+num_lms], (batch_size, num_agts, 2)) # visible agent vel, (bs,n_agts*2)
-        lm_pos =  np.reshape(obs_i[:, 5*num_agts+num_lms:5*num_agts+3*num_lms],  (batch_size, num_lms, 2)) # visible landmark pos, (bs,n_lms*2)
+        agt_pos = np.reshape(obs_i[:, num_agts+num_lms:3*num_agts+num_lms], (batch_size, num_agts, 2)) # visible agent pos,(bs,n_agts,2) (1024, 5, 2)
+        agt_vel =  np.reshape(obs_i[:, 3*num_agts+num_lms:5*num_agts+num_lms], (batch_size, num_agts, 2)) # visible agent vel, (bs,n_agts, 2) (1024, 5, 2)
+        lm_pos =  np.reshape(obs_i[:, 5*num_agts+num_lms:5*num_agts+3*num_lms],  (batch_size, num_lms, 2)) # visible landmark pos, (bs,n_lms, 2) (1024, 5, 2)
         
         obs_j_list, sum_obs_percents = [], 0.0
         for j in j_list:
@@ -206,10 +206,10 @@ class SACDMultiWMPolicy(BasePolicy):
                     obs_j = np.zeros(obs_i.shape)
                 else:
                     obs_j = obs_i.copy()
-                j_mask = np.expand_dims(agt_mask[:, j], axis=-1) #if j visible to i, (bs,)
+                j_mask = np.expand_dims(agt_mask[:, j], axis=-1) #if j visible to i, (bs,) 正常来说agt_mask[:, j]是一维的，所以要在最后面加一个维度
                 
-                j_pos = np.expand_dims(agt_pos[:, j, :], axis=1) #j's pos (bs,2)
-                agt_pos_delta = np.tile(j_pos, (1, num_agts, 1)) - agt_pos #(bs,n_agts,2)
+                j_pos = np.expand_dims(agt_pos[:, j, :], axis=1) #j's pos (bs,2)  
+                agt_pos_delta = np.tile(j_pos, (1, num_agts, 1)) - agt_pos #(bs,n_agts,2) agent j 和其他agent之间的距离
                 lm_pos_delta = np.tile(j_pos, (1, num_lms, 1)) - lm_pos
                 j_agt_mask = np.sqrt(np.sum(np.square(agt_pos_delta), axis=-1)) <= self.obs_radii[j] #agts visible to j, (bs,n_agts)
                 j_lm_mask =  np.sqrt(np.sum(np.square(lm_pos_delta), axis=-1)) <= self.obs_radii[j] #landmarks visible to j, (bs,n_lms)
@@ -234,9 +234,9 @@ class SACDMultiWMPolicy(BasePolicy):
 
 
     def calculate_intrinsic_reward(self, batch: Batch) -> Batch:
-        num_agents = self.total_num_agt
-        batch_size = batch.obs.shape[0]
-        intr_rew = np.zeros(batch.rew.shape)
+        num_agents = self.total_num_agt # 5
+        batch_size = batch.obs.shape[0] # 1024
+        intr_rew = np.zeros(batch.rew.shape) # (1024, 5)
         # for full obs, curiosity baseline and ELIGN_self
         if not self.partial_obs or self.intr_rew_options in ['curio_self', 'elign_self']: 
             # compute my own prediction loss and assume it's also agent j's prediction loss on my obs + act
@@ -268,10 +268,11 @@ class SACDMultiWMPolicy(BasePolicy):
             for i in range(self.num_adv, num_agents): # apply intr rew only on good agents
                 obs_j_list, sum_obs_percents = self.imagine_agent_j_obs(batch.obs[:,i], i, j_list)
                 
-                obs_n = np.concatenate(obs_j_list, axis=0) #(bs*j, obs_dim), where j = len(j_list)
+                obs_n = np.concatenate(obs_j_list, axis=0) #(bs*j, obs_dim), where j = len(j_list) (5120, 40)
                 
-                act_n = np.concatenate([batch.act[:,i]] * len(j_list), axis=0) #(bs*j, )
-                inputs = np.concatenate((obs_n, np.expand_dims(act_n, axis=-1)), axis=1) #(bs*j, obs_dim+1)
+                act_n = np.concatenate([batch.act[:,i]] * len(j_list), axis=0) #(bs*j, )  (5120, )
+                inputs = obs_n
+                # inputs = np.concatenate((obs_n, np.expand_dims(act_n, axis=-1)), axis=1) #(bs*j, obs_dim+1) input = obs + act
                 inputs = to_torch(inputs, device=self.world_models[i].device, dtype=torch.float)
 
                 # duplicate obs_next_i j times and concatenate them as the ground truth
@@ -431,7 +432,8 @@ class SACDMultiWMPolicy(BasePolicy):
             actor_optim.step()
             
             world_model = self.world_models[i]
-            inputs = np.concatenate((batch.obs[:, i], np.expand_dims(batch.act[:, i], axis=-1)), axis=1)
+            inputs = batch.obs[:, i]
+            # inputs = np.concatenate((batch.obs[:, i], np.expand_dims(batch.act[:, i], axis=-1)), axis=1)
             pred_next_obs = world_model(to_torch(inputs, device=world_model.device, dtype=torch.float))
             true_next_obs = to_torch(batch.obs_next[:, i], device=world_model.device, dtype=torch.float)
             wm_loss = F.mse_loss(pred_next_obs, true_next_obs)

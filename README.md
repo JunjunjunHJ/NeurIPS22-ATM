@@ -17,7 +17,7 @@ When the number of agents increases, ELIGN scales well in all multi-agent tasks 
 We show that agent coordination improves through expectation alignment because agents learn to divide tasks amongst themselves, break coordination symmetries, and confuse adversaries.
 These results identify tasks where expectation alignment is a more useful strategy than curiosity-driven exploration for multi-agent coordination, enabling agents to do zero-shot coordination.
 
-## Alignment illustraion
+## Alignment illustration
 
 | ![Alignment](docs/alignment.png) |
 |:--:|

@@ -137,7 +137,7 @@ class FullyConnectedNetwork(TorchModelV2, nn.Module):
     @override(TorchModelV2)
     def forward(self, input_dict: Dict[str, TensorType],
                 state: List[TensorType],
-                seq_lens: TensorType) -> (TensorType, List[TensorType]):
+                seq_lens: TensorType) -> (TensorType or List[TensorType]):
         obs = input_dict["obs_flat"].float()
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._hidden_layers(self._last_flat_in)
